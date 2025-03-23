@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Grades vs Internet Access</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: url(kk.gif);
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: cover;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+    .container {
+      max-width: 800px;
+      margin: 40px auto;
+      background: #f2f2f2;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+    header {
+      background-color: #ca97f3;
+      color: rgb(0, 0, 0);
+      padding: 15px;
+      font-size: 1.4rem;
+      border-radius: 10px 10px 0 0;
+    }
+    h2 {
+      color: #ca97f3;
+      margin-bottom: 15px;
+    }
+    .input-section {
+      margin: 20px 0;
+    }
+    input[type="file"] {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      width: 100%;
+      max-width: 300px;
+      cursor: pointer;
+    }
+    .btn {
+      background-color: #ca97f3;
+      color: rgb(0, 0, 0);
+      border: none;
+      padding: 12px 20px;
+      margin: 15px 5px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: 0.3s;
+    }
+    .btn:hover {
+      background-color: #a071c7;
+    }
+    #chartContainer {
+      margin: 20px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    table, th, td {
+      border: 1px solid #ddd;
+    }
+    th, td {
+      padding: 12px;
+      text-align: center;
+    }
+    th {
+      background-color: #ca97f3;
+      color: rgb(0, 0, 0);
+    }
+    tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+    pre {
+      background: #eef;
+      padding: 10px;
+      border-radius: 5px;
+      text-align: left;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>Student Grades vs Internet Access</header>
+    <div class="input-section">
+      <input type="file" id="csvFileInput" accept=".csv">
+      <button class="btn" id="exportBtn">Export Data</button>
+    </div>
+    <div id="chartContainer">
+      <canvas id="myChart"></canvas>
+    </div>
+    <table id="summaryTable">
+      <thead>
+        <tr>
+          <th>Grades</th>
+          <th>With Internet</th>
+          <th>Without Internet</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    let gradeData = {};
+    let chartInstance = null;
+    const gradeOrder = ['A', 'B', 'C', 'D', 'F'];
+
+    function validateFile(file) {
+      if (file.name !== 'Students_Grading_Dataset.csv') {
+        alert('Please upload the correct file: Students_Grading_Dataset.csv');
+        return false;
+      }
+      return true;
+    }
+
+    function processData(data) {
+      gradeData = {};
+      data[0][0] = data[0][0].replace(/^ï»¿/, '');
+      const headers = data[0].map(h => h.trim().toLowerCase());
+      const gradeIdx = headers.findIndex(h => h.includes("grade"));
+      const internetIdx = headers.findIndex(h => h.includes("internet"));
+
+      if (gradeIdx === -1 || internetIdx === -1) {
+        alert("CSV file missing required columns: Grade and/or Internet.");
+        return;
+      }
+
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        if (row.length <= Math.max(gradeIdx, internetIdx)) continue;
+
+        const grade = row[gradeIdx]?.trim() || null;
+        const internet = row[internetIdx]?.trim() || null;
+        if (!grade || !internet) continue;
+
+        if (!gradeData[grade]) {
+          gradeData[grade] = { with: 0, without: 0 };
+        }
+        if (internet.toLowerCase() === "yes") {
+          gradeData[grade].with++;
+        } else {
+          gradeData[grade].without++;
+        }
+      }
+      drawChart();
+      displaySummary();
+    }
+
+    function drawChart() {
+      const labels = gradeOrder.filter(grade => grade in gradeData);
+      const withData = labels.map(grade => gradeData[grade].with);
+      const withoutData = labels.map(grade => gradeData[grade].without);
+
+      const ctx = document.getElementById('myChart').getContext('2d');
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: 'With Internet', data: withData, backgroundColor: 'rgba(54, 162, 235, 0.7)' },
+            { label: 'Without Internet', data: withoutData, backgroundColor: 'rgba(255, 99, 132, 0.7)' }
+          ]
+        },
+        options: {
+          plugins: {
+            title: { display: true, text: 'Student Grades vs Internet Access', font: { size: 18 }, color: '#333' },
+            legend: { position: 'top' }
+          },
+          responsive: true,
+          scales: {
+            x: { title: { display: true, text: 'Grade' }, stacked: true },
+            y: { title: { display: true, text: 'Number of Students' }, stacked: true, beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function displaySummary() {
+      const summaryTableBody = document.getElementById('summaryTable').querySelector('tbody');
+      summaryTableBody.innerHTML = "";
+
+      for (const grade of gradeOrder) {
+        if (grade in gradeData) {
+          const row = `<tr><td>${grade}</td><td>${gradeData[grade].with}</td><td>${gradeData[grade].without}</td></tr>`;
+          summaryTableBody.insertAdjacentHTML('beforeend', row);
+        }
+      }
+    }
+
+    function exportAggregatedData() {
+      let csvContent = "Grade,With Internet,Without Internet\n";
+      for (const grade of gradeOrder) {
+        if (grade in gradeData) {
+          csvContent += `${grade},${gradeData[grade].with},${gradeData[grade].without}\n`;
+        }
+      }
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "AggregatedData.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    document.getElementById('csvFileInput').addEventListener('change', function (e) {
+      const file = e.target.files[0];
+      if (!validateFile(file)) return;
+
+      Papa.parse(file, {
+        complete: function(results) { processData(results.data); },
+        error: function(err) { alert("Error reading CSV file: " + err.message); }
+      });
+    });
+
+    document.getElementById('exportBtn').addEventListener('click', exportAggregatedData);
+  </script>
+</body>
+</html>
